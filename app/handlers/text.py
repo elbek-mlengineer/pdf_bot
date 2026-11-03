@@ -1,4 +1,3 @@
-import asyncio
 import shutil
 import time
 import uuid
@@ -10,8 +9,9 @@ from aiogram.types import FSInputFile, Message
 from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
-from app.queue.tasks import run_text_to_pdf_job
+from app.queue.local import run_local
 from app.utils.logger import logger
+from app.queue.cancellation import ConversionCancelled, cancellation_scope
 
 router = Router(name="text_router")
 
@@ -51,15 +51,8 @@ async def process_text_message(message: Message, state: FSMContext):
     try:
         await Repository.update_job(job_id, JobStatus.PROCESSING)
         
-        # Redis/RQ o'rniga lokal thread pool orqali async bajariladi
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(
-            None,
-            run_text_to_pdf_job,
-            text_content,
-            str(out_pdf),
-            "Document",
-        )
+        with cancellation_scope(state.key) as signal:
+            await run_local("text", [text_content, str(out_pdf), "Document"], signal)
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
         input_file = FSInputFile(str(out_pdf), filename="Text_Document.pdf")
@@ -70,6 +63,9 @@ async def process_text_message(message: Message, state: FSMContext):
         )
         await Repository.update_job(job_id, JobStatus.COMPLETED, execution_time_ms=elapsed_ms)
 
+    except ConversionCancelled:
+        await Repository.update_job(job_id, JobStatus.CANCELLED)
+        await message.answer("Conversion cancelled.")
     except Exception as exc:
         logger.error("Text to PDF error: %s", exc)
         await message.answer(f"❌ Failed to generate PDF: {exc}")

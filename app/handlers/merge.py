@@ -18,6 +18,7 @@ from app.queue.tasks import run_merge_pdf_job
 from app.queue.wait import wait_for_job
 from app.utils.file_validator import FileValidationError, FileValidator
 from app.utils.logger import logger
+from app.queue.cancellation import ConversionCancelled, cancellation_scope
 
 router = Router(name="merge_router")
 redis_conn = redis.from_url(settings.REDIS_URL)
@@ -102,7 +103,8 @@ async def execute_merge(callback: CallbackQuery, state: FSMContext):
             job_timeout=settings.CONVERSION_TIMEOUT_SECONDS,
         )
 
-        await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS)
+        with cancellation_scope(state.key) as signal:
+            await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS, signal)
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
         merged_file = FSInputFile(str(output_pdf), filename="Merged_Document.pdf")
@@ -112,6 +114,9 @@ async def execute_merge(callback: CallbackQuery, state: FSMContext):
         )
         await Repository.update_job(job_id, JobStatus.COMPLETED, execution_time_ms=elapsed_ms)
 
+    except ConversionCancelled:
+        await Repository.update_job(job_id, JobStatus.CANCELLED)
+        await callback.message.answer("Conversion cancelled.")
     except Exception as exc:
         logger.error("Merge error: %s", exc)
         await callback.message.answer(f"❌ Merge failed: {exc}")

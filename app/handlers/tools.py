@@ -18,6 +18,7 @@ from app.queue.tasks import run_pdf_tool_job
 from app.queue.wait import wait_for_job
 from app.utils.file_validator import FileValidationError, FileValidator
 from app.utils.logger import logger
+from app.queue.cancellation import ConversionCancelled, cancellation_scope
 
 router = Router(name="tools_router")
 redis_conn = redis.from_url(settings.REDIS_URL)
@@ -138,7 +139,8 @@ async def _run_tool_and_reply(
             job_timeout=settings.CONVERSION_TIMEOUT_SECONDS,
         )
 
-        await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS)
+        with cancellation_scope(state.key) as signal:
+            await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS, signal)
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
         out_file = FSInputFile(str(out_path), filename=f"Result_{tool}{ext}")
@@ -148,6 +150,9 @@ async def _run_tool_and_reply(
         )
         await Repository.update_job(job_id, JobStatus.COMPLETED, execution_time_ms=elapsed_ms)
 
+    except ConversionCancelled:
+        await Repository.update_job(job_id, JobStatus.CANCELLED)
+        await message.answer("Conversion cancelled.")
     except Exception as exc:
         logger.error("PDF tool %s failed: %s", tool, exc)
         await message.answer(f"❌ Operation failed: {exc}")

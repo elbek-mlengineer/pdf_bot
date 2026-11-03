@@ -17,6 +17,7 @@ from app.queue.tasks import run_doc_to_pdf_job
 from app.queue.wait import wait_for_job
 from app.utils.file_validator import FileValidationError, FileValidator
 from app.utils.logger import logger
+from app.queue.cancellation import ConversionCancelled, cancellation_scope
 
 router = Router(name="documents_router")
 redis_conn = redis.from_url(settings.REDIS_URL)
@@ -82,7 +83,8 @@ async def process_document_upload(message: Message, state: FSMContext):
             job_timeout=settings.CONVERSION_TIMEOUT_SECONDS,
         )
 
-        await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS)
+        with cancellation_scope(state.key) as signal:
+            await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS, signal)
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
         converted_pdf_path = Path(job.result)
@@ -94,6 +96,9 @@ async def process_document_upload(message: Message, state: FSMContext):
         )
         await Repository.update_job(job_id, JobStatus.COMPLETED, execution_time_ms=elapsed_ms)
 
+    except ConversionCancelled:
+        await Repository.update_job(job_id, JobStatus.CANCELLED)
+        await message.answer("Conversion cancelled.")
     except Exception as exc:
         logger.error("Document conversion failed: %s", exc)
         await message.answer(f"❌ Conversion error: {exc}")

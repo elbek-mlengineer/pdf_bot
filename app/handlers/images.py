@@ -1,4 +1,3 @@
-import asyncio
 import shutil
 import time
 import uuid
@@ -13,9 +12,10 @@ from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
 from app.keyboards.inline import get_image_options_keyboard
-from app.queue.tasks import run_image_to_pdf_job
+from app.queue.local import run_local
 from app.utils.file_validator import FileValidationError, FileValidator
 from app.utils.logger import logger
+from app.queue.cancellation import ConversionCancelled, cancellation_scope
 
 router = Router(name="images_router")
 
@@ -125,17 +125,8 @@ async def process_image_conversion(callback: CallbackQuery, state: FSMContext):
     try:
         await Repository.update_job(job_id, JobStatus.PROCESSING)
         
-        # Redis/RQ o'rniga lokal thread pool orqali async bajariladi
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(
-            None,
-            run_image_to_pdf_job,
-            file_list,
-            str(output_pdf),
-            page_size,
-            orientation,
-            18,  # margin
-        )
+        with cancellation_scope(state.key) as signal:
+            await run_local("images", [file_list, str(output_pdf), page_size, orientation, 18], signal)
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
         input_file = FSInputFile(str(output_pdf), filename="Images_Converted.pdf")
@@ -145,6 +136,9 @@ async def process_image_conversion(callback: CallbackQuery, state: FSMContext):
         )
         await Repository.update_job(job_id, JobStatus.COMPLETED, execution_time_ms=elapsed_ms)
 
+    except ConversionCancelled:
+        await Repository.update_job(job_id, JobStatus.CANCELLED)
+        await callback.message.answer("Conversion cancelled.")
     except Exception as exc:
         logger.error("Image to PDF failed: %s", exc)
         await callback.message.answer(f"❌ Image conversion failed: {exc}")
