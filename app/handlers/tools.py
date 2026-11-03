@@ -1,4 +1,3 @@
-import asyncio
 import shutil
 import time
 import uuid
@@ -16,6 +15,7 @@ from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
 from app.keyboards.inline import get_pdf_tools_keyboard
 from app.queue.tasks import run_pdf_tool_job
+from app.queue.wait import wait_for_job
 from app.utils.file_validator import FileValidationError, FileValidator
 from app.utils.logger import logger
 
@@ -134,14 +134,11 @@ async def _run_tool_and_reply(
         job = task_queue.enqueue(
             run_pdf_tool_job,
             args=(tool, input_pdf, str(out_path), param),
+            ttl=settings.CONVERSION_TIMEOUT_SECONDS,
             job_timeout=settings.CONVERSION_TIMEOUT_SECONDS,
         )
 
-        while not job.is_finished and not job.is_failed:
-            await asyncio.sleep(0.4)
-
-        if job.is_failed:
-            raise RuntimeError("Tool operation failed. Check your parameters or PDF content.")
+        await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS)
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
         out_file = FSInputFile(str(out_path), filename=f"Result_{tool}{ext}")

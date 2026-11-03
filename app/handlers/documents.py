@@ -1,4 +1,3 @@
-import asyncio
 import shutil
 import time
 import uuid
@@ -15,6 +14,7 @@ from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
 from app.queue.tasks import run_doc_to_pdf_job
+from app.queue.wait import wait_for_job
 from app.utils.file_validator import FileValidationError, FileValidator
 from app.utils.logger import logger
 
@@ -78,14 +78,11 @@ async def process_document_upload(message: Message, state: FSMContext):
         job = task_queue.enqueue(
             run_doc_to_pdf_job,
             args=(str(target_path), str(out_dir)),
+            ttl=settings.CONVERSION_TIMEOUT_SECONDS,
             job_timeout=settings.CONVERSION_TIMEOUT_SECONDS,
         )
 
-        while not job.is_finished and not job.is_failed:
-            await asyncio.sleep(0.5)
-
-        if job.is_failed:
-            raise RuntimeError("Document conversion failed or timed out.")
+        await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS)
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
         converted_pdf_path = Path(job.result)

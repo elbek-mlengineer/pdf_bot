@@ -1,4 +1,3 @@
-import asyncio
 import shutil
 import time
 import uuid
@@ -16,6 +15,7 @@ from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
 from app.keyboards.inline import get_merge_action_keyboard
 from app.queue.tasks import run_merge_pdf_job
+from app.queue.wait import wait_for_job
 from app.utils.file_validator import FileValidationError, FileValidator
 from app.utils.logger import logger
 
@@ -98,14 +98,11 @@ async def execute_merge(callback: CallbackQuery, state: FSMContext):
         job = task_queue.enqueue(
             run_merge_pdf_job,
             args=(file_list, str(output_pdf)),
+            ttl=settings.CONVERSION_TIMEOUT_SECONDS,
             job_timeout=settings.CONVERSION_TIMEOUT_SECONDS,
         )
 
-        while not job.is_finished and not job.is_failed:
-            await asyncio.sleep(0.4)
-
-        if job.is_failed:
-            raise RuntimeError("Failed to merge PDF files.")
+        await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS)
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
         merged_file = FSInputFile(str(output_pdf), filename="Merged_Document.pdf")
