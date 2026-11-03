@@ -13,6 +13,7 @@ from app.bot import bot
 from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
+from app.handlers.filename import ask_before_upload
 from app.i18n import labels, tr
 from app.queue.cancellation import ConversionCancelled, cancellation_scope
 from app.queue.submission import enqueue_conversion
@@ -32,8 +33,9 @@ class DocumentFlow(StatesGroup):
 @router.message(F.text.in_(labels("menu_document")))
 async def start_doc_conversion(message: Message, state: FSMContext):
     await clear_session(state)
-    await state.set_state(DocumentFlow.waiting_for_doc)
-    await message.answer(tr("document_prompt", settings.MAX_FILE_SIZE_MB))
+    await ask_before_upload(
+        message, state, DocumentFlow.waiting_for_doc, "document_prompt", settings.MAX_FILE_SIZE_MB
+    )
 
 
 @router.message(DocumentFlow.waiting_for_doc, F.document)
@@ -95,7 +97,10 @@ async def _process_file(message, state, doc, signal, job_id, job_dir):
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
         converted_pdf_path = Path(job.result)
-        out_file = FSInputFile(str(converted_pdf_path), filename=f"{Path(safe_name).stem}.pdf")
+        out_file = FSInputFile(
+            str(converted_pdf_path),
+            filename=(await state.get_data()).get("pdf_name", f"{Path(safe_name).stem}.pdf"),
+        )
         await status_msg.delete()
         if signal.is_set():
             raise ConversionCancelled

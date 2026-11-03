@@ -10,6 +10,7 @@ from aiogram.types import FSInputFile, Message
 from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
+from app.handlers.filename import ask_before_upload
 from app.i18n import MENU_LABELS, labels, tr
 from app.queue.cancellation import ConversionCancelled, cancellation_scope
 from app.queue.local import run_local
@@ -26,8 +27,7 @@ class TextFlow(StatesGroup):
 @router.message(F.text.in_(labels("menu_text")))
 async def start_text_to_pdf(message: Message, state: FSMContext):
     await clear_session(state)
-    await state.set_state(TextFlow.waiting_for_text)
-    await message.answer(tr("text_prompt"))
+    await ask_before_upload(message, state, TextFlow.waiting_for_text, "text_prompt")
 
 
 @router.message(TextFlow.waiting_for_text, F.text, ~F.text.in_(MENU_LABELS))
@@ -53,7 +53,9 @@ async def process_text_message(message: Message, state: FSMContext):
             await run_local("text", [text_content, str(out_pdf), "Document"], signal)
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
-        input_file = FSInputFile(str(out_pdf), filename="Text_Document.pdf")
+        input_file = FSInputFile(
+            str(out_pdf), filename=(await state.get_data()).get("pdf_name", "Text_Document.pdf")
+        )
         await status_msg.delete()
         await message.answer_document(
             document=input_file,

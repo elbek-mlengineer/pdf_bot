@@ -1,8 +1,10 @@
 import asyncio
+
 from app.bot import bot, dp
 from app.config import settings
 from app.database.session import init_db
-from app.handlers import admin, common, documents, images, merge, settings as settings_handler, text, tools
+from app.handlers import admin, common, documents, filename, images, merge, text, tools
+from app.handlers import settings as settings_handler
 from app.middlewares.rate_limit import DistributedRateLimitMiddleware
 from app.utils.logger import logger
 
@@ -21,6 +23,7 @@ async def main() -> None:
 
     dp.include_router(common.router)
     dp.include_router(settings_handler.router)
+    dp.include_router(filename.router)
     dp.include_router(images.router)
     dp.include_router(text.router)
     dp.include_router(documents.router)

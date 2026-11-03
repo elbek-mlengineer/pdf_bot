@@ -15,7 +15,7 @@
   "download_failed": "Hujjatni yuklab bo‘lmadi. Qayta yuboring.",
   "cancelled": "Konvertatsiya bekor qilindi.",
   "conversion_error": "❌ Konvertatsiyada xato: {0}",
-  "image_prompt": "📸 <b>Rasmlardan PDF</b>\nBir yoki bir nechta rasm yuboring (JPG, PNG, WEBP). Keyin sahifa o‘lchami va yo‘nalishini tanlang.",
+  "image_prompt": "📸 <b>Rasmlardan PDF</b>\nBir yoki bir nechta rasm yuboring (JPG, PNG, WEBP). Keyin sahifa o‘lchami va yo‘nalishini tanlang.\n\nAsl sifatni saqlash uchun rasmni Telegramda «Fayl» sifatida yuboring. «Foto» sifatida yuborilgan rasm siqilgan bo‘lishi mumkin.",
   "image_work": "⏳ Rasmlar tayyorlanmoqda…",
   "images_max": "⚠️ Ko‘pi bilan {0} ta rasm yuborish mumkin.",
   "size_limit": "❌ Fayl hajmi {0} MB dan oshdi.",
@@ -98,5 +98,7 @@
   "language": "🌐 Til",
   "choose_language": "Tilni tanlang:",
   "language_saved": "O‘zbek tili tanlandi.",
-  "rotate": "Aylantirish"
+  "rotate": "Aylantirish",
+  "ask_pdf_name": "PDF fayliga qanday nom beramiz? Masalan: Yillik hisobot",
+  "invalid_pdf_name": "Boshqa nom kiriting. Nom bo‘sh bo‘lmasin, juda uzun bo‘lmasin va fayl yo‘li belgilarini ishlatmang."
 }

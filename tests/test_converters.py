@@ -1,5 +1,6 @@
 from PIL import Image
 from pypdf import PdfReader
+
 from app.converters.image_to_pdf import ImageToPdfConverter
 from app.converters.pdf_tools import PdfTools
 from app.converters.text_to_pdf import TextToPdfConverter
@@ -67,3 +68,19 @@ def test_pdf_tools_merge_rotate_extract_numbers(temp_dir):
     split_zip = temp_dir / "split.zip"
     PdfTools.split_pdf_to_zip(merged, split_zip)
     assert split_zip.exists()
+
+
+def test_pdf_preserves_jpeg_stream_and_png_pixels(temp_dir):
+    jpg = temp_dir / "detail.jpg"
+    png = temp_dir / "lines.png"
+    original = Image.linear_gradient("L").resize((2400, 1700)).convert("RGB")
+    original.save(jpg, quality=96)
+    original.save(png)
+    out = temp_dir / "detail.pdf"
+    ImageToPdfConverter.convert_images([jpg, png], out, page_size="A5")
+    reader = PdfReader(out)
+    jpeg = next(iter(reader.pages[0]["/Resources"]["/XObject"].values())).get_object()
+    assert jpeg.get_data() == jpg.read_bytes()
+    extracted = reader.pages[1].images[0].image
+    assert extracted.size == original.size
+    assert extracted.convert("RGB").tobytes() == original.tobytes()

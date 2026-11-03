@@ -12,6 +12,7 @@ from app.bot import bot
 from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
+from app.handlers.filename import name_input, read_filename
 from app.i18n import labels, tr
 from app.keyboards.inline import get_pdf_tools_keyboard
 from app.queue.cancellation import ConversionCancelled, cancellation_scope
@@ -28,6 +29,7 @@ router = Router(name="tools_router")
 class ToolsFlow(StatesGroup):
     waiting_for_pdf = State()
     selecting_tool = State()
+    waiting_for_name = State()
     waiting_for_page_range = State()
     waiting_for_metadata = State()
 
@@ -87,27 +89,47 @@ async def handle_tool_selection(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
+    await callback.answer()
+    if tool not in ("split", "extract_images"):
+        await _ask_tool_filename(callback.message, state, tool, param)
+        return
     await callback.message.edit_text(tr("pdf_work"))
     await _run_tool_and_reply(callback.message, callback.from_user.id, state, tool, param)
-    await callback.answer()
 
 
 @router.message(ToolsFlow.waiting_for_page_range, F.text)
 async def handle_page_range_input(message: Message, state: FSMContext):
-    await _run_tool_and_reply(
-        message, message.from_user.id, state, "extract_pages", message.text.strip()
-    )
+    await _ask_tool_filename(message, state, "extract_pages", message.text.strip())
 
 
 @router.message(ToolsFlow.waiting_for_metadata, F.text)
 async def handle_metadata_input(message: Message, state: FSMContext):
-    await _run_tool_and_reply(
-        message, message.from_user.id, state, "metadata", message.text.strip()
-    )
+    await _ask_tool_filename(message, state, "metadata", message.text.strip())
+
+
+async def _ask_tool_filename(message, state, tool, param):
+    await state.update_data(tool=tool, param=param)
+    await state.set_state(ToolsFlow.waiting_for_name)
+    await message.answer(tr("ask_pdf_name"))
+
+
+@router.message(ToolsFlow.waiting_for_name, name_input)
+async def run_named_tool(message: Message, state: FSMContext):
+    name = await read_filename(message)
+    if name:
+        data = await state.get_data()
+        await _run_tool_and_reply(
+            message, message.from_user.id, state, data["tool"], data["param"], name
+        )
 
 
 async def _run_tool_and_reply(
-    message: Message, user_id: int, state: FSMContext, tool: str, param: str
+    message: Message,
+    user_id: int,
+    state: FSMContext,
+    tool: str,
+    param: str,
+    name: str | None = None,
 ):
     data = await state.get_data()
     job_id = data["job_id"]
@@ -129,7 +151,7 @@ async def _run_tool_and_reply(
             await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS, signal)
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
-        out_file = FSInputFile(str(out_path), filename=f"Result_{tool}{ext}")
+        out_file = FSInputFile(str(out_path), filename=name or f"Result_{tool}{ext}")
         await message.answer_document(
             document=out_file,
             caption=tr("tool_done", tr(tool), elapsed_ms),

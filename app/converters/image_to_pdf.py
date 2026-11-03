@@ -1,7 +1,8 @@
 from pathlib import Path
+
 from PIL import Image, ImageOps
-from app.config import settings
-from app.utils.logger import logger
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen.canvas import Canvas
 
 
 class ImageConversionError(Exception):
@@ -9,10 +10,7 @@ class ImageConversionError(Exception):
 
 
 class ImageToPdfConverter:
-    PAGE_SIZES = {
-        "A4": (595.27, 841.89),
-        "A5": (419.53, 595.27),
-    }
+    PAGE_SIZES = {"A4": (595.27, 841.89), "A5": (419.53, 595.27)}
 
     @classmethod
     def convert_images(
@@ -26,70 +24,34 @@ class ImageToPdfConverter:
         if not image_paths:
             raise ImageConversionError("No input images provided.")
 
-        processed_images: list[Image.Image] = []
-
+        output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf = Canvas(str(output_pdf_path), pageCompression=1)
         try:
             for path in image_paths:
-                with Image.open(path) as img:
-                    img = ImageOps.exif_transpose(img)
-
-                    if img.width > settings.MAX_IMAGE_DIMENSION or img.height > settings.MAX_IMAGE_DIMENSION:
-                        img.thumbnail(
-                            (settings.MAX_IMAGE_DIMENSION, settings.MAX_IMAGE_DIMENSION),
-                            Image.Resampling.LANCZOS,
-                        )
-
-                    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
-                        alpha = img.convert("RGBA")
-                        bg = Image.new("RGBA", alpha.size, (255, 255, 255, 255))
-                        bg.paste(alpha, mask=alpha.split()[3])
-                        rgb_img = bg.convert("RGB")
-                    else:
-                        rgb_img = img.convert("RGB")
-
-                    if page_size in cls.PAGE_SIZES:
-                        target_width_pt, target_height_pt = cls.PAGE_SIZES[page_size]
-                        if orientation == "landscape":
-                            target_width_pt, target_height_pt = target_height_pt, target_width_pt
-
-                        dpi = 150
-                        target_w_px = int(target_width_pt * (dpi / 72))
-                        target_h_px = int(target_height_pt * (dpi / 72))
-                        margin_px = int(margin * (dpi / 72))
-
-                        usable_w = max(100, target_w_px - (2 * margin_px))
-                        usable_h = max(100, target_h_px - (2 * margin_px))
-
-                        rgb_img.thumbnail((usable_w, usable_h), Image.Resampling.LANCZOS)
-
-                        canvas = Image.new("RGB", (target_w_px, target_h_px), (255, 255, 255))
-                        offset_x = (target_w_px - rgb_img.width) // 2
-                        offset_y = (target_h_px - rgb_img.height) // 2
-                        canvas.paste(rgb_img, (offset_x, offset_y))
-                        processed_images.append(canvas)
-                    else:
-                        processed_images.append(rgb_img.copy())
-
-            output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
-            first_image = processed_images[0]
-            rest = processed_images[1:]
-
-            first_image.save(
-                output_pdf_path,
-                format="PDF",
-                save_all=True,
-                append_images=rest,
-                resolution=150.0,
-                quality=85,
-                optimize=True,
-            )
-
-            logger.info("Created PDF from %d image(s): %s", len(image_paths), output_pdf_path)
-            return output_pdf_path
-
+                with Image.open(path) as source:
+                    # Pass JPEG bytes directly when no EXIF transform is needed.
+                    # Otherwise embed the oriented pixels with lossless compression.
+                    with ImageOps.exif_transpose(source) as img:
+                        width, height = img.size
+                        if page_size in cls.PAGE_SIZES:
+                            pw, ph = cls.PAGE_SIZES[page_size]
+                            if orientation == "landscape":
+                                pw, ph = ph, pw
+                            scale = min((pw - 2 * margin) / width, (ph - 2 * margin) / height)
+                        else:
+                            scale = 72 / 150
+                            pw, ph = width * scale, height * scale
+                        pdf.setPageSize((pw, ph))
+                        direct = source.format == "JPEG" and source.getexif().get(274, 1) == 1
+                        if direct:
+                            image = ImageReader(str(path))
+                        else:
+                            mode = "RGBA" if img.has_transparency_data else "RGB"
+                            image = ImageReader(img.convert(mode))
+                        w, h = width * scale, height * scale
+                        pdf.drawImage(image, (pw - w) / 2, (ph - h) / 2, w, h, mask="auto")
+                        pdf.showPage()
+            pdf.save()
         except Exception as exc:
-            logger.error("Failed to convert images to PDF: %s", exc)
             raise ImageConversionError(f"Image conversion failed: {exc}") from exc
-        finally:
-            for img in processed_images:
-                img.close()
+        return output_pdf_path

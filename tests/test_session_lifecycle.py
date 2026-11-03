@@ -6,6 +6,7 @@ from redis.exceptions import WatchError
 
 from app import main
 from app.handlers import documents, text
+from app.handlers.filename import FilenameFlow
 from app.queue import submission
 from app.queue.cancellation import CancelActiveConversion
 
@@ -19,7 +20,7 @@ async def test_switching_flow_removes_previous_files(tmp_path):
     await text.start_text_to_pdf(AsyncMock(), state)
     assert not folder.exists()
     state.clear.assert_awaited_once()
-    state.set_state.assert_awaited_once_with(text.TextFlow.waiting_for_text)
+    state.set_state.assert_awaited_once_with(FilenameFlow.waiting)
 
 
 async def test_restart_keeps_pending_updates():

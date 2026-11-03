@@ -15,7 +15,7 @@
   "download_failed": "Download failed. Please send the document again.",
   "cancelled": "Conversion cancelled.",
   "conversion_error": "❌ Conversion error: {0}",
-  "image_prompt": "📸 <b>Images to PDF</b>\n\nSend one or more images (as photos or uncompressed image files: JPG, PNG, WEBP).\nWhen ready, select your PDF layout below:",
+  "image_prompt": "📸 <b>Images to PDF</b>\n\nSend one or more images (as photos or uncompressed image files: JPG, PNG, WEBP).\nWhen ready, select your PDF layout below:\n\nSend the image as a file to preserve original quality. Telegram may compress images sent as photos.",
   "image_work": "⏳ Processing images...",
   "images_max": "⚠️ Maximum limit reached ({0} images).",
   "size_limit": "❌ File exceeds {0} MB limit.",
@@ -98,5 +98,7 @@
   "language": "🌐 Language",
   "choose_language": "Choose your language:",
   "language_saved": "English selected.",
-  "rotate": "Rotate"
+  "rotate": "Rotate",
+  "ask_pdf_name": "What should the PDF be called? For example: Annual report",
+  "invalid_pdf_name": "Please enter a nonempty, shorter filename without path or reserved characters."
 }

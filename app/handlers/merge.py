@@ -12,6 +12,7 @@ from app.bot import bot
 from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
+from app.handlers.filename import ask_before_upload
 from app.i18n import labels, tr
 from app.keyboards.inline import get_merge_action_keyboard
 from app.queue.cancellation import ConversionCancelled, cancellation_scope
@@ -37,9 +38,9 @@ async def start_pdf_merge(message: Message, state: FSMContext):
     job_dir.mkdir(parents=True, exist_ok=True)
 
     await state.update_data(job_id=job_id, job_dir=str(job_dir), files=[])
-    await state.set_state(MergeFlow.collecting_pdfs)
-
-    await message.answer(tr("merge_prompt", settings.MAX_PDF_MERGE_COUNT))
+    await ask_before_upload(
+        message, state, MergeFlow.collecting_pdfs, "merge_prompt", settings.MAX_PDF_MERGE_COUNT
+    )
 
 
 @router.message(MergeFlow.collecting_pdfs, F.document)
@@ -98,7 +99,10 @@ async def execute_merge(callback: CallbackQuery, state: FSMContext):
             await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS, signal)
 
         elapsed_ms = int((time.perf_counter() - start_ts) * 1000)
-        merged_file = FSInputFile(str(output_pdf), filename="Merged_Document.pdf")
+        merged_file = FSInputFile(
+            str(output_pdf),
+            filename=(await state.get_data()).get("pdf_name", "Merged_Document.pdf"),
+        )
         await callback.message.answer_document(
             document=merged_file,
             caption=tr("merged", len(file_list), elapsed_ms),
