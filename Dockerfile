@@ -19,9 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY pyproject.toml .
+COPY app ./app
 RUN pip install --no-cache-dir .
-
-COPY . .
 
 RUN useradd -m -u 1000 appuser && \
     mkdir -p /tmp/pdf_converter && \

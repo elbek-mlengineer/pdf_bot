@@ -37,6 +37,9 @@ services:
         condition: service_healthy
     env_file:
       - .env
+    environment: &container_env
+      DATABASE_URL: postgresql+asyncpg://pdfuser:StrongPassword123!@postgres:5432/pdfbot
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - shared_tmp:/tmp/pdf_converter
 
@@ -53,6 +56,7 @@ services:
         condition: service_healthy
     env_file:
       - .env
+    environment: *container_env
     volumes:
       - shared_tmp:/tmp/pdf_converter
 
