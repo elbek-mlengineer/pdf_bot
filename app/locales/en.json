@@ -100,5 +100,6 @@
   "language_saved": "English selected.",
   "rotate": "Rotate",
   "ask_pdf_name": "What should the PDF be called? For example: Annual report",
-  "invalid_pdf_name": "Please enter a nonempty, shorter filename without path or reserved characters."
+  "invalid_pdf_name": "Please enter a nonempty, shorter filename without path or reserved characters.",
+  "contact_admin": "💬 Contact admin"
 }

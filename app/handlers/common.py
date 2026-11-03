@@ -3,7 +3,7 @@ from html import escape
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from app.database.repositories import Repository
 from app.i18n import LANGUAGES, current_language, labels, tr
@@ -48,8 +48,8 @@ async def cb_cancel(callback: CallbackQuery, state: FSMContext):
 @router.message(Command("help"))
 @router.message(F.text.in_(labels("menu_help")))
 async def cmd_help(message: Message):
-    text = tr("help")
-    await message.answer(text)
+    contact = InlineKeyboardButton(text=tr("contact_admin"), url="https://t.me/Heart_07_07")
+    await message.answer(tr("help"), reply_markup=InlineKeyboardMarkup(inline_keyboard=[[contact]]))
 
 
 @router.message(Command("language", "lang"))
