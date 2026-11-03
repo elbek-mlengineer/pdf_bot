@@ -1,7 +1,7 @@
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.memory import MemoryStorage, SimpleEventIsolation
 from app.config import settings
 
 bot = Bot(
@@ -10,4 +10,4 @@ bot = Bot(
 )
 
 storage = MemoryStorage()
-dp = Dispatcher(storage=storage)
+dp = Dispatcher(storage=storage, events_isolation=SimpleEventIsolation())
