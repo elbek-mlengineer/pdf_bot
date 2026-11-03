@@ -105,5 +105,11 @@
   "menu_rename": "✏️ Fayl nomini o‘zgartirish",
   "rename_upload": "Nomini o‘zgartirmoqchi bo‘lgan faylni hujjat sifatida yuboring.",
   "rename_name": "Yangi fayl nomini yozing. Kengaytmani yozmasangiz, asl kengaytma saqlanadi.",
-  "rename_error": "Faylni qaytarib bo‘lmadi. Qayta urinish uchun yangi nomni yana yuboring."
+  "rename_error": "Faylni qaytarib bo‘lmadi. Qayta urinish uchun yangi nomni yana yuboring.",
+  "command_start": "Asosiy menyuni ochish",
+  "command_rename": "Fayl nomini o‘zgartirish",
+  "command_settings": "PDF sozlamalarini o‘zgartirish",
+  "command_language": "Bot tilini tanlash",
+  "command_help": "Yordam olish yoki admin bilan bog‘lanish",
+  "command_cancel": "Joriy amalni bekor qilish"
 }

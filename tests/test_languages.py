@@ -60,3 +60,19 @@ async def test_selection_survives_cancel_and_rebuilds_menu(language):
 
     await LanguageMiddleware(storage)(next_update, None, data)
     assert current_language.get() == "en"
+
+async def test_slash_menu_registration():
+    from app.commands import register_commands, set_private_commands
+
+    bot = AsyncMock()
+    await register_commands(bot)
+    calls = bot.set_my_commands.await_args_list
+    assert [c.kwargs.get("language_code") for c in calls] == [None, *LANGUAGES]
+    for call in calls:
+        assert [item.command for item in call.args[0]] == [
+            "start", "rename", "settings", "language", "help", "cancel"
+        ]
+    await set_private_commands(bot, 123, "uz")
+    private = bot.set_my_commands.await_args
+    assert private.kwargs["scope"].chat_id == 123
+    assert private.args[0][0].description == "Asosiy menyuni ochish"

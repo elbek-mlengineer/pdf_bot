@@ -1,6 +1,7 @@
 import asyncio
 
 from app.bot import bot, dp
+from app.commands import register_commands
 from app.config import settings
 from app.database.session import init_db
 from app.handlers import admin, common, documents, filename, images, merge, rename, text, tools
@@ -35,6 +36,7 @@ async def main() -> None:
     logger.info("Starting Telegram Bot polling...")
     try:
         await bot.delete_webhook(drop_pending_updates=False)
+        await register_commands(bot)
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         await bot.session.close()

@@ -105,5 +105,11 @@
   "menu_rename": "✏️ Rename a file",
   "rename_upload": "Send the file you want to rename as a document.",
   "rename_name": "Enter the new filename. Leave out the extension to keep the original one.",
-  "rename_error": "Could not return the file. Send the name again to retry."
+  "rename_error": "Could not return the file. Send the name again to retry.",
+  "command_start": "Open the main menu",
+  "command_rename": "Rename a file",
+  "command_settings": "Change PDF settings",
+  "command_language": "Choose the bot language",
+  "command_help": "Get help or contact the admin",
+  "command_cancel": "Cancel the current action"
 }

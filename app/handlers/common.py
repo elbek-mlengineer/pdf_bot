@@ -5,6 +5,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+from app.commands import set_private_commands
 from app.database.repositories import Repository
 from app.i18n import LANGUAGES, current_language, labels, tr
 from app.keyboards.language import language_keyboard
@@ -26,6 +27,9 @@ async def cmd_start(message: Message, state: FSMContext):
             first_name=user.first_name,
             last_name=user.last_name,
         )
+
+    if message.chat.type == "private":
+        await set_private_commands(message.bot, message.chat.id, current_language.get())
 
     text = tr("welcome", escape(user.first_name) if user else "👋")
     await message.answer(text, reply_markup=get_main_menu())
@@ -66,6 +70,8 @@ async def select_language(callback: CallbackQuery, state: FSMContext):
     )
     current_language.set(code)
     await callback.answer()
+    if callback.message.chat.type == "private":
+        await set_private_commands(callback.bot, callback.message.chat.id, code)
     await callback.message.edit_text(tr("language_saved"))
     await callback.message.answer(
         tr("welcome", escape(callback.from_user.first_name)), reply_markup=get_main_menu()
