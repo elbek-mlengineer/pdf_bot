@@ -2,27 +2,26 @@ import shutil
 import time
 import uuid
 from pathlib import Path
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Document, FSInputFile, Message
-from rq import Queue
-import redis
 
 from app.bot import bot
 from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
 from app.keyboards.inline import get_pdf_tools_keyboard
+from app.queue.cancellation import ConversionCancelled, cancellation_scope
+from app.queue.submission import enqueue_conversion
 from app.queue.tasks import run_pdf_tool_job
 from app.queue.wait import wait_for_job
 from app.utils.file_validator import FileValidationError, FileValidator
 from app.utils.logger import logger
-from app.queue.cancellation import ConversionCancelled, cancellation_scope
+from app.utils.session_files import clear_session
 
 router = Router(name="tools_router")
-redis_conn = redis.from_url(settings.REDIS_URL)
-task_queue = Queue("pdf_jobs", connection=redis_conn)
 
 
 class ToolsFlow(StatesGroup):
@@ -34,7 +33,7 @@ class ToolsFlow(StatesGroup):
 
 @router.message(F.text == "🛠 PDF Tools")
 async def start_pdf_tools(message: Message, state: FSMContext):
-    await state.clear()
+    await clear_session(state)
     await state.set_state(ToolsFlow.waiting_for_pdf)
     await message.answer(
         "🛠 <b>PDF Manipulation Tools</b>\n\n"
@@ -132,12 +131,7 @@ async def _run_tool_and_reply(
 
     try:
         await Repository.update_job(job_id, JobStatus.PROCESSING)
-        job = task_queue.enqueue(
-            run_pdf_tool_job,
-            args=(tool, input_pdf, str(out_path), param),
-            ttl=settings.CONVERSION_TIMEOUT_SECONDS,
-            job_timeout=settings.CONVERSION_TIMEOUT_SECONDS,
-        )
+        job = await enqueue_conversion(run_pdf_tool_job, tool, input_pdf, str(out_path), param)
 
         with cancellation_scope(state.key) as signal:
             await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS, signal)

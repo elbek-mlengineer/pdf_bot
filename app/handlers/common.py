@@ -1,18 +1,18 @@
-import shutil
-from pathlib import Path
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+
 from app.database.repositories import Repository
 from app.keyboards.main_menu import get_main_menu
+from app.utils.session_files import clear_session
 
 router = Router(name="common_router")
 
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
-    await _cleanup_state(state)
+    await clear_session(state)
     user = message.from_user
     if user:
         await Repository.upsert_user(
@@ -39,13 +39,13 @@ async def cmd_start(message: Message, state: FSMContext):
 
 @router.message(Command("cancel"))
 async def cmd_cancel(message: Message, state: FSMContext):
-    await _cleanup_state(state)
+    await clear_session(state)
     await message.answer("❌ Current operation cancelled and temporary files removed.", reply_markup=get_main_menu())
 
 
 @router.callback_query(F.data == "action:cancel")
 async def cb_cancel(callback: CallbackQuery, state: FSMContext):
-    await _cleanup_state(state)
+    await clear_session(state)
     await callback.message.edit_text("❌ Operation cancelled.")
     await callback.answer()
 
@@ -63,11 +63,3 @@ async def cmd_help(message: Message):
         "🔒 <b>Privacy & Security</b>: All uploaded and converted files are automatically deleted immediately after processing."
     )
     await message.answer(text)
-
-
-async def _cleanup_state(state: FSMContext) -> None:
-    data = await state.get_data()
-    job_dir = data.get("job_dir")
-    if job_dir:
-        shutil.rmtree(Path(job_dir), ignore_errors=True)
-    await state.clear()

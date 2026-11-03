@@ -1,6 +1,7 @@
 import enum
 from datetime import datetime
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, func
+
+from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -55,9 +56,7 @@ class ConversionJob(Base):
     __tablename__ = "conversion_jobs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("users.telegram_id"), index=True
-    )
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.telegram_id"), index=True)
     job_type: Mapped[str] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(32), default=JobStatus.QUEUED.value, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -68,3 +67,11 @@ class ConversionJob(Base):
     error_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="jobs")
+
+
+class BotSession(Base):
+    __tablename__ = "bot_sessions"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    state: Mapped[str | None] = mapped_column(String(255))
+    data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)

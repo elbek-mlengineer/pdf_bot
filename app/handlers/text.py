@@ -1,6 +1,7 @@
 import shutil
 import time
 import uuid
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -9,9 +10,10 @@ from aiogram.types import FSInputFile, Message
 from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
+from app.queue.cancellation import ConversionCancelled, cancellation_scope
 from app.queue.local import run_local
 from app.utils.logger import logger
-from app.queue.cancellation import ConversionCancelled, cancellation_scope
+from app.utils.session_files import clear_session
 
 router = Router(name="text_router")
 
@@ -22,7 +24,7 @@ class TextFlow(StatesGroup):
 
 @router.message(F.text == "📝 Text to PDF")
 async def start_text_to_pdf(message: Message, state: FSMContext):
-    await state.clear()
+    await clear_session(state)
     await state.set_state(TextFlow.waiting_for_text)
     await message.answer(
         "📝 <b>Text to PDF Converter</b>\n\n"

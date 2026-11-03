@@ -1,8 +1,10 @@
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage, SimpleEventIsolation
+from aiogram.fsm.storage.memory import SimpleEventIsolation
+
 from app.config import settings
+from app.database.fsm import SessionStorage
 from app.queue.cancellation import CancelActiveConversion
 
 bot = Bot(
@@ -10,7 +12,7 @@ bot = Bot(
     default=DefaultBotProperties(parse_mode=ParseMode.HTML),
 )
 
-storage = MemoryStorage()
+storage = SessionStorage()
 dp = Dispatcher(storage=storage, events_isolation=SimpleEventIsolation())
 dp.update.outer_middleware.unregister(dp.fsm)
 dp.update.outer_middleware(CancelActiveConversion(dp.fsm))

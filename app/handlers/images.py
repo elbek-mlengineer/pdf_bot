@@ -2,6 +2,7 @@ import shutil
 import time
 import uuid
 from pathlib import Path
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -12,10 +13,11 @@ from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
 from app.keyboards.inline import get_image_options_keyboard
+from app.queue.cancellation import ConversionCancelled, cancellation_scope
 from app.queue.local import run_local
 from app.utils.file_validator import FileValidationError, FileValidator
 from app.utils.logger import logger
-from app.queue.cancellation import ConversionCancelled, cancellation_scope
+from app.utils.session_files import clear_session
 
 router = Router(name="images_router")
 
@@ -26,7 +28,7 @@ class ImageFlow(StatesGroup):
 
 @router.message(F.text == "🖼 Images to PDF")
 async def start_image_to_pdf(message: Message, state: FSMContext):
-    await state.clear()
+    await clear_session(state)
     job_id = str(uuid.uuid4())
     job_dir = settings.TEMP_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)

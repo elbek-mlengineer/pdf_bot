@@ -2,27 +2,26 @@ import shutil
 import time
 import uuid
 from pathlib import Path
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Document, FSInputFile, Message
-from rq import Queue
-import redis
 
 from app.bot import bot
 from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
 from app.keyboards.inline import get_merge_action_keyboard
+from app.queue.cancellation import ConversionCancelled, cancellation_scope
+from app.queue.submission import enqueue_conversion
 from app.queue.tasks import run_merge_pdf_job
 from app.queue.wait import wait_for_job
 from app.utils.file_validator import FileValidationError, FileValidator
 from app.utils.logger import logger
-from app.queue.cancellation import ConversionCancelled, cancellation_scope
+from app.utils.session_files import clear_session
 
 router = Router(name="merge_router")
-redis_conn = redis.from_url(settings.REDIS_URL)
-task_queue = Queue("pdf_jobs", connection=redis_conn)
 
 
 class MergeFlow(StatesGroup):
@@ -31,7 +30,7 @@ class MergeFlow(StatesGroup):
 
 @router.message(F.text == "📚 Merge PDF Files")
 async def start_pdf_merge(message: Message, state: FSMContext):
-    await state.clear()
+    await clear_session(state)
     job_id = str(uuid.uuid4())
     job_dir = settings.TEMP_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -96,12 +95,7 @@ async def execute_merge(callback: CallbackQuery, state: FSMContext):
 
     try:
         await Repository.update_job(job_id, JobStatus.PROCESSING)
-        job = task_queue.enqueue(
-            run_merge_pdf_job,
-            args=(file_list, str(output_pdf)),
-            ttl=settings.CONVERSION_TIMEOUT_SECONDS,
-            job_timeout=settings.CONVERSION_TIMEOUT_SECONDS,
-        )
+        job = await enqueue_conversion(run_merge_pdf_job, file_list, str(output_pdf))
 
         with cancellation_scope(state.key) as signal:
             await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS, signal)
