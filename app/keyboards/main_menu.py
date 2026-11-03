@@ -15,6 +15,9 @@ def get_main_menu() -> ReplyKeyboardMarkup:
         ],
         [
             KeyboardButton(text=tr("menu_tools")),
+            KeyboardButton(text=tr("menu_rename")),
+        ],
+        [
             KeyboardButton(text=tr("menu_settings")),
         ],
         [

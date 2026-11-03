@@ -2,7 +2,7 @@
   "admin_stats": "📊 <b>Administrator System Telemetry</b>\n\n👥 <b>Total Registered Users:</b> <code>{0}</code>\n⚙️ <b>Total Jobs Executed:</b> <code>{1}</code>\n✅ <b>Completed Jobs:</b> <code>{2}</code>\n❌ <b>Failed Jobs:</b> <code>{3}</code>\n⏱ <b>Avg Execution Time:</b> <code>{4} ms</code>\n📥 <b>Pending Queue Size:</b> <code>{5}</code>\n\n🖥 <b>Server Resources</b>\n• CPU Usage: <code>{6}%</code>\n• RAM Usage: <code>{7}% ({8} MB / {9} MB)</code>\n• Temp Disk Free: <code>{10} MB</code>",
   "unauthorized": "⛔ Unauthorized access.",
   "welcome": "👋 Hello, <b>{0}</b>!\n\nWelcome to the <b>Professional PDF Converter Bot</b>.\n\nSelect an operation from the menu below:\n• 🖼 <b>Images to PDF</b>: Combine JPG, PNG, WEBP photos\n• 📝 <b>Text to PDF</b>: Multi-page Unicode (Uzbek Latin/Cyrillic, RU, EN)\n• 📄 <b>Convert Document</b>: DOCX, XLSX, PPTX, ODT, RTF, CSV, HTML\n• 📚 <b>Merge PDF Files</b>: Combine PDFs & Office documents\n• 🛠 <b>PDF Tools</b>: Compress, Rotate, Split, Extract Pages/Images, Page Numbers\n• ⚙️ <b>Settings</b>: Configure default page size and orientation\n\nUse /cancel at any time to stop the current action.\n/language — Choose your language.",
-  "help": "📖 <b>Bot User Guide</b>\n\n1. <b>Images to PDF</b>: Upload up to 50 images, then choose A4, A5, or Original layout.\n2. <b>Text to PDF</b>: Send any text message (supports o‘, g‘, ў, қ, ғ, ҳ). Use <code># Heading</code> for titles.\n3. <b>Convert Document to PDF</b>: Upload DOC, DOCX, XLS, XLSX, PPT, PPTX, ODT, RTF, TXT, CSV, or HTML.\n4. <b>Merge PDF Files</b>: Send multiple PDFs in order and tap 'Merge'.\n5. <b>PDF Tools</b>: Upload a single PDF to compress, rotate, extract pages, split, or add page numbers.\n\n🔒 <b>Privacy & Security</b>: All uploaded and converted files are automatically deleted immediately after processing.",
+  "help": "📖 <b>Bot User Guide</b>\n\n1. <b>Images to PDF</b>: Upload up to 50 images, then choose A4, A5, or Original layout.\n2. <b>Text to PDF</b>: Send any text message (supports o‘, g‘, ў, қ, ғ, ҳ). Use <code># Heading</code> for titles.\n3. <b>Convert Document to PDF</b>: Upload DOC, DOCX, XLS, XLSX, PPT, PPTX, ODT, RTF, TXT, CSV, or HTML.\n4. <b>Merge PDF Files</b>: Send multiple PDFs in order and tap 'Merge'.\n5. <b>PDF Tools</b>: Upload a single PDF to compress, rotate, extract pages, split, or add page numbers.\n\n🔒 <b>Privacy & Security</b>: All uploaded and converted files are automatically deleted immediately after processing.\n\nUse /rename to rename a file.",
   "cancel_clean": "❌ Current operation cancelled and temporary files removed.",
   "cancel_done": "❌ Operation cancelled.",
   "document_prompt": "📄 <b>Document to PDF Converter</b>\n\nUpload your Office or text document:\n• Supported: <b>DOC, DOCX, XLS, XLSX, PPT, PPTX, ODT, RTF, TXT, CSV, HTML</b>\n• Max file size: <b>{0} MB</b>",
@@ -101,5 +101,9 @@
   "rotate": "Rotate",
   "ask_pdf_name": "What should the PDF be called? For example: Annual report",
   "invalid_pdf_name": "Please enter a nonempty, shorter filename without path or reserved characters.",
-  "contact_admin": "💬 Contact admin"
+  "contact_admin": "💬 Contact admin",
+  "menu_rename": "✏️ Rename a file",
+  "rename_upload": "Send the file you want to rename as a document.",
+  "rename_name": "Enter the new filename. Leave out the extension to keep the original one.",
+  "rename_error": "Could not return the file. Send the name again to retry."
 }

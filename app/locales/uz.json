@@ -2,7 +2,7 @@
   "admin_stats": "📊 <b>Bot statistikasi</b>\nFoydalanuvchilar: {0}\nVazifalar: {1}\nBajarildi: {2}\nXatolar: {3}\nO‘rtacha vaqt: {4} ms\nNavbatda: {5}\nCPU: {6}%\nRAM: {7}% ({8}/{9} MB)\nBo‘sh disk: {10} MB",
   "unauthorized": "⛔ Kirish huquqi yo‘q.",
   "welcome": "👋 Salom, <b>{0}</b>!\n\nRasm, matn yoki hujjatni PDFga aylantirish, PDFlarni birlashtirish yoki tahrirlash uchun menyudan amal tanlang.\n\n/language — tilni tanlash\n/cancel — amalni bekor qilish",
-  "help": "📖 <b>Qo‘llanma</b>\nRasmlarni yuborilgan tartibda bitta PDFga yig‘ing. Matn yoki Office hujjatini PDFga aylantiring. Birlashtirish uchun kamida ikkita PDF yuboring. PDF vositalari orqali sahifalarni ajrating, aylantiring yoki raqamlang.\n\n/settings — sozlamalar\n/language — til\n/cancel — bekor qilish",
+  "help": "📖 <b>Qo‘llanma</b>\nRasmlarni yuborilgan tartibda bitta PDFga yig‘ing. Matn yoki Office hujjatini PDFga aylantiring. Birlashtirish uchun kamida ikkita PDF yuboring. PDF vositalari orqali sahifalarni ajrating, aylantiring yoki raqamlang.\n\n/settings — sozlamalar\n/language — til\n/cancel — bekor qilish\n\nFayl nomini o‘zgartirish uchun /rename buyrug‘idan foydalaning.",
   "cancel_clean": "❌ Amal bekor qilindi. Vaqtinchalik fayllar o‘chirildi.",
   "cancel_done": "❌ Amal bekor qilindi.",
   "document_prompt": "📄 <b>Hujjatni PDFga aylantirish</b>\nDOC, DOCX, XLS, XLSX, PPT, PPTX, ODT, RTF, TXT, CSV yoki HTML fayl yuboring. Hajmi {0} MB dan oshmasin.",
@@ -101,5 +101,9 @@
   "rotate": "Aylantirish",
   "ask_pdf_name": "PDF fayliga qanday nom beramiz? Masalan: Yillik hisobot",
   "invalid_pdf_name": "Boshqa nom kiriting. Nom bo‘sh bo‘lmasin, juda uzun bo‘lmasin va fayl yo‘li belgilarini ishlatmang.",
-  "contact_admin": "💬 Admin bilan aloqa"
+  "contact_admin": "💬 Admin bilan aloqa",
+  "menu_rename": "✏️ Fayl nomini o‘zgartirish",
+  "rename_upload": "Nomini o‘zgartirmoqchi bo‘lgan faylni hujjat sifatida yuboring.",
+  "rename_name": "Yangi fayl nomini yozing. Kengaytmani yozmasangiz, asl kengaytma saqlanadi.",
+  "rename_error": "Faylni qaytarib bo‘lmadi. Qayta urinish uchun yangi nomni yana yuboring."
 }

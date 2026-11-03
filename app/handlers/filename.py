@@ -22,10 +22,15 @@ def pdf_filename(text: str) -> str | None:
         stem = stem[:-4].rstrip()
     if not stem or stem in {".", ".."} or stem.endswith("."):
         return None
-    if re.search(r'[<>:"/\\|?*]', stem) or any(unicodedata.category(c) == "Cc" for c in stem):
+    return validate_filename(stem + ".pdf")
+
+
+def validate_filename(name: str) -> str | None:
+    if not name or name.endswith(".") or len(name.encode("utf-8")) > 255:
         return None
-    name = stem + ".pdf"
-    return name if len(name.encode("utf-8")) <= 255 else None
+    if re.search(r'[<>:"/\\|?*]', name) or any(unicodedata.category(c) == "Cc" for c in name):
+        return None
+    return name
 
 
 async def read_filename(message: Message) -> str | None:
