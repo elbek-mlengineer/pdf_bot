@@ -1,10 +1,15 @@
+from html import escape
+
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from app.database.repositories import Repository
+from app.i18n import LANGUAGES, current_language, labels, tr
+from app.keyboards.language import language_keyboard
 from app.keyboards.main_menu import get_main_menu
+from app.middlewares.language import language_key
 from app.utils.session_files import clear_session
 
 router = Router(name="common_router")
@@ -22,44 +27,46 @@ async def cmd_start(message: Message, state: FSMContext):
             last_name=user.last_name,
         )
 
-    text = (
-        f"👋 Hello, <b>{user.first_name if user else 'User'}</b>!\n\n"
-        "Welcome to the <b>Professional PDF Converter Bot</b>.\n\n"
-        "Select an operation from the menu below:\n"
-        "• 🖼 <b>Images to PDF</b>: Combine JPG, PNG, WEBP photos\n"
-        "• 📝 <b>Text to PDF</b>: Multi-page Unicode (Uzbek Latin/Cyrillic, RU, EN)\n"
-        "• 📄 <b>Convert Document</b>: DOCX, XLSX, PPTX, ODT, RTF, CSV, HTML\n"
-        "• 📚 <b>Merge PDF Files</b>: Combine PDFs & Office documents\n"
-        "• 🛠 <b>PDF Tools</b>: Compress, Rotate, Split, Extract Pages/Images, Page Numbers\n"
-        "• ⚙️ <b>Settings</b>: Configure default page size and orientation\n\n"
-        "Use /cancel at any time to stop the current action."
-    )
+    text = tr("welcome", escape(user.first_name) if user else "👋")
     await message.answer(text, reply_markup=get_main_menu())
+    await choose_language(message)
 
 
 @router.message(Command("cancel"))
 async def cmd_cancel(message: Message, state: FSMContext):
     await clear_session(state)
-    await message.answer("❌ Current operation cancelled and temporary files removed.", reply_markup=get_main_menu())
+    await message.answer(tr("cancel_clean"), reply_markup=get_main_menu())
 
 
 @router.callback_query(F.data == "action:cancel")
 async def cb_cancel(callback: CallbackQuery, state: FSMContext):
     await clear_session(state)
-    await callback.message.edit_text("❌ Operation cancelled.")
+    await callback.message.edit_text(tr("cancel_done"))
     await callback.answer()
 
 
 @router.message(Command("help"))
-@router.message(F.text == "❓ Help")
+@router.message(F.text.in_(labels("menu_help")))
 async def cmd_help(message: Message):
-    text = (
-        "📖 <b>Bot User Guide</b>\n\n"
-        "1. <b>Images to PDF</b>: Upload up to 50 images, then choose A4, A5, or Original layout.\n"
-        "2. <b>Text to PDF</b>: Send any text message (supports o‘, g‘, ў, қ, ғ, ҳ). Use <code># Heading</code> for titles.\n"
-        "3. <b>Convert Document to PDF</b>: Upload DOC, DOCX, XLS, XLSX, PPT, PPTX, ODT, RTF, TXT, CSV, or HTML.\n"
-        "4. <b>Merge PDF Files</b>: Send multiple PDFs in order and tap 'Merge'.\n"
-        "5. <b>PDF Tools</b>: Upload a single PDF to compress, rotate, extract pages, split, or add page numbers.\n\n"
-        "🔒 <b>Privacy & Security</b>: All uploaded and converted files are automatically deleted immediately after processing."
-    )
+    text = tr("help")
     await message.answer(text)
+
+
+@router.message(Command("language", "lang"))
+@router.message(F.text.in_(labels("language")))
+async def choose_language(message: Message):
+    await message.answer(tr("choose_language"), reply_markup=language_keyboard())
+
+
+@router.callback_query(F.data.in_({f"lang:{code}" for code in LANGUAGES}))
+async def select_language(callback: CallbackQuery, state: FSMContext):
+    code = callback.data.split(":", 1)[1]
+    await state.storage.set_data(
+        language_key(callback.bot.id, callback.from_user.id), {"language": code}
+    )
+    current_language.set(code)
+    await callback.answer()
+    await callback.message.edit_text(tr("language_saved"))
+    await callback.message.answer(
+        tr("welcome", escape(callback.from_user.first_name)), reply_markup=get_main_menu()
+    )

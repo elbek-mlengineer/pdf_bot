@@ -13,6 +13,7 @@ from app.bot import bot
 from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
+from app.i18n import labels, tr
 from app.queue.cancellation import ConversionCancelled, cancellation_scope
 from app.queue.submission import enqueue_conversion
 from app.queue.tasks import run_doc_to_pdf_job
@@ -28,23 +29,18 @@ class DocumentFlow(StatesGroup):
     waiting_for_doc = State()
 
 
-@router.message(F.text == "📄 Convert Document to PDF")
+@router.message(F.text.in_(labels("menu_document")))
 async def start_doc_conversion(message: Message, state: FSMContext):
     await clear_session(state)
     await state.set_state(DocumentFlow.waiting_for_doc)
-    await message.answer(
-        "📄 <b>Document to PDF Converter</b>\n\n"
-        "Upload your Office or text document:\n"
-        "• Supported: <b>DOC, DOCX, XLS, XLSX, PPT, PPTX, ODT, RTF, TXT, CSV, HTML</b>\n"
-        f"• Max file size: <b>{settings.MAX_FILE_SIZE_MB} MB</b>"
-    )
+    await message.answer(tr("document_prompt", settings.MAX_FILE_SIZE_MB))
 
 
 @router.message(DocumentFlow.waiting_for_doc, F.document)
 async def process_document_upload(message: Message, state: FSMContext):
     doc: Document = message.document
     if doc.file_size and doc.file_size > settings.max_file_size_bytes:
-        await message.answer(f"❌ File exceeds maximum size of {settings.MAX_FILE_SIZE_MB} MB.")
+        await message.answer(tr("size_max", settings.MAX_FILE_SIZE_MB))
         return
 
     with cancellation_scope(state.key) as signal:
@@ -52,7 +48,7 @@ async def process_document_upload(message: Message, state: FSMContext):
             await _convert_document(message, state, doc, signal)
         except ConversionCancelled:
             await state.clear()
-            await message.answer("Conversion cancelled.")
+            await message.answer(tr("cancelled"))
 
 
 async def _convert_document(
@@ -60,7 +56,7 @@ async def _convert_document(
 ):
     active_count = await Repository.count_active_user_jobs(message.from_user.id)
     if active_count >= settings.MAX_CONCURRENT_JOBS_PER_USER:
-        await message.answer("⚠️ You already have active conversions in progress. Please wait.")
+        await message.answer(tr("busy"))
         return
 
     job_id = str(uuid.uuid4())
@@ -73,19 +69,19 @@ async def _process_file(message, state, doc, signal, job_id, job_dir):
     target_path = job_dir / safe_name
 
     try:
-        status_msg = await message.answer("📥 Downloading and validating document...")
+        status_msg = await message.answer(tr("downloading"))
         await download_or_cancel(doc.file_id, target_path, signal)
         FileValidator.validate_document(target_path, settings.max_file_size_bytes)
     except ConversionCancelled:
         raise
     except FileValidationError as e:
-        await status_msg.edit_text(f"❌ Validation failed: {e}")
+        await status_msg.edit_text(tr("invalid", e))
         return
     except Exception:
-        await message.answer("Download failed. Please send the document again.")
+        await message.answer(tr("download_failed"))
         return
 
-    await status_msg.edit_text("⚙️ Converting document to PDF via LibreOffice...")
+    await status_msg.edit_text(tr("document_work"))
     start_ts = time.perf_counter()
     await Repository.create_job(job_id, message.from_user.id, JobType.DOC_TO_PDF.value)
     try:
@@ -105,16 +101,16 @@ async def _process_file(message, state, doc, signal, job_id, job_dir):
             raise ConversionCancelled
         await message.answer_document(
             document=out_file,
-            caption=f"✅ Document converted to PDF in {elapsed_ms} ms.",
+            caption=tr("document_done", elapsed_ms),
         )
         await Repository.update_job(job_id, JobStatus.COMPLETED, execution_time_ms=elapsed_ms)
 
     except ConversionCancelled:
         await Repository.update_job(job_id, JobStatus.CANCELLED)
-        await message.answer("Conversion cancelled.")
+        await message.answer(tr("cancelled"))
     except Exception as exc:
         logger.error("Document conversion failed: %s", exc)
-        await message.answer(f"❌ Conversion error: {exc}")
+        await message.answer(tr("conversion_error", exc))
         await Repository.update_job(job_id, JobStatus.FAILED, error_message=str(exc))
     finally:
         await state.clear()

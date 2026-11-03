@@ -1,10 +1,14 @@
 from pathlib import Path
+
 from PIL import Image
 from pypdf import PdfReader
+
 from app.config import settings
+from app.i18n import tr
 
 try:
     import magic
+
     HAS_MAGIC = True
 except ImportError:
     HAS_MAGIC = False
@@ -42,8 +46,18 @@ class FileValidator:
     }
 
     ALLOWED_DOCUMENT_EXTS = {
-        ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-        ".odt", ".txt", ".rtf", ".csv", ".html", ".htm",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".odt",
+        ".txt",
+        ".rtf",
+        ".csv",
+        ".html",
+        ".htm",
     }
 
     @staticmethod
@@ -76,60 +90,57 @@ class FileValidator:
         cls._check_size(file_path, max_bytes)
         mime = cls.detect_mime(file_path)
         if HAS_MAGIC and mime not in cls.ALLOWED_IMAGE_MIMES:
-            raise FileValidationError(f"Unsupported image format ({mime}). Use JPG, PNG, or WEBP.")
+            raise FileValidationError(tr("unsupported_image", mime))
         try:
             with Image.open(file_path) as img:
                 img.verify()
-                if img.width > settings.MAX_IMAGE_DIMENSION or img.height > settings.MAX_IMAGE_DIMENSION:
-                    raise FileValidationError(
-                        f"Image dimensions ({img.width}x{img.height}) exceed safety limit."
-                    )
+                if (
+                    img.width > settings.MAX_IMAGE_DIMENSION
+                    or img.height > settings.MAX_IMAGE_DIMENSION
+                ):
+                    raise FileValidationError(tr("large_image", img.width, img.height))
         except FileValidationError:
             raise
         except Exception as exc:
-            raise FileValidationError("Corrupted or invalid image file.") from exc
+            raise FileValidationError(tr("bad_image")) from exc
 
     @classmethod
     def validate_document(cls, file_path: Path, max_bytes: int) -> None:
         cls._check_size(file_path, max_bytes)
         ext = file_path.suffix.lower()
         if ext not in cls.ALLOWED_DOCUMENT_EXTS:
-            raise FileValidationError(f"Unsupported file extension '{ext}'.")
+            raise FileValidationError(tr("unsupported_extension", ext))
         mime = cls.detect_mime(file_path)
         if HAS_MAGIC and mime not in cls.ALLOWED_DOCUMENT_MIMES:
-            raise FileValidationError(f"File content ({mime}) does not match supported Office formats.")
+            raise FileValidationError(tr("wrong_format", mime))
 
     @classmethod
     def validate_pdf(cls, file_path: Path, max_bytes: int) -> int:
         cls._check_size(file_path, max_bytes)
         with open(file_path, "rb") as f:
             if not f.read(5).startswith(b"%PDF-"):
-                raise FileValidationError("File is not a valid PDF document.")
+                raise FileValidationError(tr("not_pdf"))
         try:
             reader = PdfReader(str(file_path))
             if reader.is_encrypted:
-                raise FileValidationError("Password-protected PDFs cannot be processed.")
+                raise FileValidationError(tr("protected_pdf"))
             num_pages = len(reader.pages)
             if num_pages == 0:
-                raise FileValidationError("PDF has 0 pages.")
+                raise FileValidationError(tr("zero_pages"))
             if num_pages > settings.MAX_PDF_PAGES:
-                raise FileValidationError(
-                    f"PDF has {num_pages} pages, exceeding the limit of {settings.MAX_PDF_PAGES}."
-                )
+                raise FileValidationError(tr("too_many_pages", num_pages, settings.MAX_PDF_PAGES))
             return num_pages
         except FileValidationError:
             raise
         except Exception as exc:
-            raise FileValidationError("Corrupted or unreadable PDF file.") from exc
+            raise FileValidationError(tr("bad_pdf")) from exc
 
     @staticmethod
     def _check_size(file_path: Path, max_bytes: int) -> None:
         if not file_path.exists():
-            raise FileValidationError("File does not exist.")
+            raise FileValidationError(tr("missing_file"))
         size = file_path.stat().st_size
         if size == 0:
-            raise FileValidationError("Uploaded file is empty (0 bytes).")
+            raise FileValidationError(tr("empty_file"))
         if size > max_bytes:
-            raise FileValidationError(
-                f"File exceeds maximum size of {max_bytes // (1024 * 1024)} MB."
-            )
+            raise FileValidationError(tr("file_too_large", max_bytes // (1024 * 1024)))

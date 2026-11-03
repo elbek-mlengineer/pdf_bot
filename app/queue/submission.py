@@ -7,6 +7,7 @@ from rq import Queue
 from rq.job import Job
 
 from app.config import settings
+from app.i18n import tr
 
 queue = Queue("pdf_jobs", connection=Redis.from_url(settings.REDIS_URL))
 
@@ -19,7 +20,7 @@ def _enqueue(function: Callable, args: tuple) -> Job:
             try:
                 pipe.watch(queue.key)
                 if pipe.llen(queue.key) >= settings.MAX_QUEUE_SIZE:
-                    raise RuntimeError("The conversion queue is full. Please try again later.")
+                    raise RuntimeError(tr("queue_full"))
                 pipe.multi()
                 queue.enqueue_job(job, pipeline=pipe)
                 pipe.execute()

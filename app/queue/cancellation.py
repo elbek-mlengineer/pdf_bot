@@ -1,7 +1,9 @@
-from contextlib import contextmanager
 import asyncio
+from contextlib import contextmanager
 
 from aiogram.filters import Command
+
+from app.i18n import tr
 
 
 class ConversionCancelled(Exception):
@@ -35,10 +37,10 @@ class CancelActiveConversion:
             callback = event.callback_query
             if callback and callback.data == "action:cancel":
                 signal.set()
-                await callback.answer("Stopping conversion…")
+                await callback.answer(tr("stopping"))
                 return
             if event.message and await self.command(event.message, data["bot"]):
                 signal.set()
-                await event.message.answer("Stopping conversion…")
+                await event.message.answer(tr("stopping"))
                 return
         return await handler(event, data)

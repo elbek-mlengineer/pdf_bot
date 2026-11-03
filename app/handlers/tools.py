@@ -12,6 +12,7 @@ from app.bot import bot
 from app.config import settings
 from app.database.models import JobStatus, JobType
 from app.database.repositories import Repository
+from app.i18n import labels, tr
 from app.keyboards.inline import get_pdf_tools_keyboard
 from app.queue.cancellation import ConversionCancelled, cancellation_scope
 from app.queue.submission import enqueue_conversion
@@ -31,28 +32,18 @@ class ToolsFlow(StatesGroup):
     waiting_for_metadata = State()
 
 
-@router.message(F.text == "🛠 PDF Tools")
+@router.message(F.text.in_(labels("menu_tools")))
 async def start_pdf_tools(message: Message, state: FSMContext):
     await clear_session(state)
     await state.set_state(ToolsFlow.waiting_for_pdf)
-    await message.answer(
-        "🛠 <b>PDF Manipulation Tools</b>\n\n"
-        "Upload a PDF file to access:\n"
-        "• Compress PDF size\n"
-        "• Add Page Numbers\n"
-        "• Rotate Pages (90° / 180°)\n"
-        "• Extract Specific Pages\n"
-        "• Split All Pages into ZIP\n"
-        "• Extract Embedded Images\n"
-        "• Edit PDF Title & Author Metadata"
-    )
+    await message.answer(tr("tools_prompt"))
 
 
 @router.message(ToolsFlow.waiting_for_pdf, F.document)
 async def receive_pdf_for_tools(message: Message, state: FSMContext):
     doc: Document = message.document
     if doc.file_size and doc.file_size > settings.max_file_size_bytes:
-        await message.answer(f"❌ File exceeds {settings.MAX_FILE_SIZE_MB} MB limit.")
+        await message.answer(tr("size_limit", settings.MAX_FILE_SIZE_MB))
         return
 
     job_id = str(uuid.uuid4())
@@ -65,13 +56,15 @@ async def receive_pdf_for_tools(message: Message, state: FSMContext):
         pages = FileValidator.validate_pdf(input_pdf, settings.max_file_size_bytes)
     except FileValidationError as e:
         shutil.rmtree(job_dir, ignore_errors=True)
-        await message.answer(f"❌ Invalid PDF: {e}")
+        await message.answer(tr("pdf_invalid", e))
         return
 
-    await state.update_data(job_id=job_id, job_dir=str(job_dir), input_pdf=str(input_pdf), pages=pages)
+    await state.update_data(
+        job_id=job_id, job_dir=str(job_dir), input_pdf=str(input_pdf), pages=pages
+    )
     await state.set_state(ToolsFlow.selecting_tool)
     await message.answer(
-        f"✅ PDF loaded ({pages} pages). Choose an action below:",
+        tr("pdf_ready", pages),
         reply_markup=get_pdf_tools_keyboard(),
     )
 
@@ -84,34 +77,33 @@ async def handle_tool_selection(callback: CallbackQuery, state: FSMContext):
 
     if tool == "extract_pages":
         await state.set_state(ToolsFlow.waiting_for_page_range)
-        await callback.message.edit_text(
-            "✂️ Send the page numbers or ranges you want to extract (e.g. <code>1-3, 5</code>):"
-        )
+        await callback.message.edit_text(tr("range_prompt"))
         await callback.answer()
         return
 
     if tool == "metadata":
         await state.set_state(ToolsFlow.waiting_for_metadata)
-        await callback.message.edit_text(
-            "🏷 Send the new Title and Author separated by <code>|</code>\n"
-            "Example: <code>Annual Report 2026 | FinTech Team</code>"
-        )
+        await callback.message.edit_text(tr("metadata_prompt"))
         await callback.answer()
         return
 
-    await callback.message.edit_text("⚙️ Processing your PDF...")
+    await callback.message.edit_text(tr("pdf_work"))
     await _run_tool_and_reply(callback.message, callback.from_user.id, state, tool, param)
     await callback.answer()
 
 
 @router.message(ToolsFlow.waiting_for_page_range, F.text)
 async def handle_page_range_input(message: Message, state: FSMContext):
-    await _run_tool_and_reply(message, message.from_user.id, state, "extract_pages", message.text.strip())
+    await _run_tool_and_reply(
+        message, message.from_user.id, state, "extract_pages", message.text.strip()
+    )
 
 
 @router.message(ToolsFlow.waiting_for_metadata, F.text)
 async def handle_metadata_input(message: Message, state: FSMContext):
-    await _run_tool_and_reply(message, message.from_user.id, state, "metadata", message.text.strip())
+    await _run_tool_and_reply(
+        message, message.from_user.id, state, "metadata", message.text.strip()
+    )
 
 
 async def _run_tool_and_reply(
@@ -140,16 +132,16 @@ async def _run_tool_and_reply(
         out_file = FSInputFile(str(out_path), filename=f"Result_{tool}{ext}")
         await message.answer_document(
             document=out_file,
-            caption=f"✅ PDF tool '{tool}' completed in {elapsed_ms} ms.",
+            caption=tr("tool_done", tr(tool), elapsed_ms),
         )
         await Repository.update_job(job_id, JobStatus.COMPLETED, execution_time_ms=elapsed_ms)
 
     except ConversionCancelled:
         await Repository.update_job(job_id, JobStatus.CANCELLED)
-        await message.answer("Conversion cancelled.")
+        await message.answer(tr("cancelled"))
     except Exception as exc:
         logger.error("PDF tool %s failed: %s", tool, exc)
-        await message.answer(f"❌ Operation failed: {exc}")
+        await message.answer(tr("tool_error", exc))
         await Repository.update_job(job_id, JobStatus.FAILED, error_message=str(exc))
     finally:
         shutil.rmtree(job_dir, ignore_errors=True)

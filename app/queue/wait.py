@@ -1,10 +1,11 @@
 import asyncio
 
-from rq.exceptions import InvalidJobOperation
-from rq.job import Job, JobStatus
 from rq import Queue
 from rq.command import send_stop_job_command
+from rq.exceptions import InvalidJobOperation
+from rq.job import Job, JobStatus
 
+from app.i18n import tr
 from app.queue.cancellation import ConversionCancelled
 
 
@@ -26,7 +27,12 @@ async def wait_for_job(job: Job, timeout: int, signal: asyncio.Event | None = No
             while True:
                 status = await asyncio.to_thread(job.get_status)
                 if signal is not None and signal.is_set():
-                    if status in (JobStatus.FINISHED, JobStatus.STOPPED, JobStatus.CANCELED, JobStatus.FAILED):
+                    if status in (
+                        JobStatus.FINISHED,
+                        JobStatus.STOPPED,
+                        JobStatus.CANCELED,
+                        JobStatus.FAILED,
+                    ):
                         raise ConversionCancelled
                     try:
                         removed = await asyncio.to_thread(request_stop, job, status)
@@ -37,9 +43,9 @@ async def wait_for_job(job: Job, timeout: int, signal: asyncio.Event | None = No
                 if status == JobStatus.FINISHED:
                     return
                 if status in (JobStatus.FAILED, JobStatus.STOPPED, JobStatus.CANCELED):
-                    raise RuntimeError("PDF processing failed or was stopped.")
+                    raise RuntimeError(tr("job_failed"))
                 await asyncio.sleep(0.5)
     except InvalidJobOperation as exc:
-        raise RuntimeError("The job expired or was removed. Please try again.") from exc
+        raise RuntimeError(tr("expired")) from exc
     except TimeoutError as exc:
-        raise RuntimeError("PDF processing timed out. Please try again.") from exc
+        raise RuntimeError(tr("timed_out")) from exc
