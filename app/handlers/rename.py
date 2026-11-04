@@ -1,7 +1,9 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from aiohttp import ClientConnectionError
 from aiogram import F, Router
+from aiogram.exceptions import TelegramNetworkError
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -14,6 +16,8 @@ from app.utils.logger import logger
 from app.utils.session_files import clear_session
 
 router = Router(name="rename")
+TRANSFER_TIMEOUT = 300
+CLOUD_DOWNLOAD_LIMIT_MB = 20
 
 
 class RenameFlow(StatesGroup):
@@ -34,8 +38,11 @@ async def start_rename(message: Message, state: FSMContext):
 )
 async def receive_file(message: Message, state: FSMContext):
     document = message.document
-    if (document.file_size or 0) > settings.max_file_size_bytes:
-        await message.answer(tr("size_limit", settings.MAX_FILE_SIZE_MB))
+    limit_mb = settings.MAX_FILE_SIZE_MB
+    if not message.bot.session.api.is_local:
+        limit_mb = min(limit_mb, CLOUD_DOWNLOAD_LIMIT_MB)
+    if (document.file_size or 0) > limit_mb * 1024 * 1024:
+        await message.answer(tr("size_limit", limit_mb))
         return
     await state.update_data(rename_file_id=document.file_id, original_name=document.file_name or "")
     await state.set_state(RenameFlow.waiting_for_name)
@@ -55,10 +62,20 @@ async def send_renamed_file(message: Message, state: FSMContext):
     try:
         with TemporaryDirectory(dir=settings.TEMP_DIR) as folder:
             payload = Path(folder) / "payload"
-            await message.bot.download(data["rename_file_id"], destination=payload)
-            await message.answer_document(
+            for attempt in range(2):
+                try:
+                    await message.bot.download(
+                        data["rename_file_id"], destination=payload, timeout=TRANSFER_TIMEOUT
+                    )
+                    break
+                except (TimeoutError, ClientConnectionError, TelegramNetworkError):
+                    if attempt:
+                        raise
+                    payload.unlink(missing_ok=True)
+            upload = message.answer_document(
                 document=FSInputFile(payload, filename=name), disable_content_type_detection=True
             )
+            await message.bot(upload, request_timeout=TRANSFER_TIMEOUT)
     except Exception:
         logger.exception("File rename transfer failed")
         await message.answer(tr("rename_error"))
