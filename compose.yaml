@@ -1,11 +1,12 @@
 services:
   postgres:
+    networks: [db_net]
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: pdfbot
       POSTGRES_USER: pdfuser
-      POSTGRES_PASSWORD: StrongPassword123!
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -15,6 +16,7 @@ services:
       retries: 5
 
   redis:
+    networks: [queue_net]
     image: redis:7-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
@@ -29,6 +31,16 @@ services:
   bot:
     build: .
     restart: unless-stopped
+    networks: [default, db_net, queue_net]
+    mem_limit: 1g
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/pdfbot-ready"]
+      interval: 10s
+      timeout: 4s
+      retries: 6
+      start_period: 20s
     command: python -m app.main
     depends_on:
       postgres:
@@ -37,16 +49,28 @@ services:
         condition: service_healthy
     env_file:
       - .env
-    environment: &container_env
-      DATABASE_URL: postgresql+asyncpg://pdfuser:StrongPassword123!@postgres:5432/pdfbot
+    environment:
+      QUEUE_ALL_CONVERSIONS: "true"
+      DATABASE_URL: postgresql+asyncpg://pdfuser:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/pdfbot
       REDIS_URL: redis://redis:6379/0
     volumes:
-      - shared_tmp:/tmp/pdf_converter
+      - shared_tmp:/var/lib/pdfbot/jobs
 
   worker:
     build: .
     restart: unless-stopped
-    command: rq worker pdf_jobs --url redis://redis:6379/0
+    command: ["sh", "-c", 'exec rq worker --name "$$HOSTNAME" pdf_jobs --url redis://redis:6379/0']
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,redis; assert redis.Redis(host='redis').exists('rq:worker:'+os.environ['HOSTNAME'])"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [queue_net]
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
     deploy:
       replicas: 2
     depends_on:
@@ -54,11 +78,21 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-    env_file:
-      - .env
-    environment: *container_env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      SANDBOX_OFFICE: 'true'
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-40}
+      MAX_PDF_PAGES: ${MAX_PDF_PAGES:-500}
+      MAX_IMAGE_DIMENSION: ${MAX_IMAGE_DIMENSION:-8000}
+      CONVERSION_TIMEOUT_SECONDS: ${CONVERSION_TIMEOUT_SECONDS:-90}
     volumes:
-      - shared_tmp:/tmp/pdf_converter
+      - shared_tmp:/var/lib/pdfbot/jobs
+
+networks:
+  db_net:
+    internal: true
+  queue_net:
+    internal: true
 
 volumes:
   postgres_data:

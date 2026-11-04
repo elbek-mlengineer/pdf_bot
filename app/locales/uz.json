@@ -111,5 +111,8 @@
   "command_settings": "PDF sozlamalarini o‘zgartirish",
   "command_language": "Bot tilini tanlash",
   "command_help": "Yordam olish yoki admin bilan bog‘lanish",
-  "command_cancel": "Joriy amalni bekor qilish"
+  "command_cancel": "Joriy amalni bekor qilish",
+  "user_directory": "Foydalanuvchilar: {0} · Sahifa: {1}",
+  "user_dates": "Ro‘yxatdan o‘tgan: {0} UTC · Oxirgi faollik: {1} UTC",
+  "session_expired": "Oldingi yuklamalar muddati tugadi. Fayllarni qayta yuboring."
 }

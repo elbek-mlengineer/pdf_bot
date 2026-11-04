@@ -1,0 +1,64 @@
+name: Test and deploy
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite+aiosqlite:///./ci.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install '.[dev]'
+      - run: python -m pytest -q
+      - name: Validate container configuration
+        run: |
+          cp .env.example .env
+          POSTGRES_PASSWORD=ci-only docker compose config --quiet
+      - name: Check persisted users and queued Office conversion
+        env:
+          POSTGRES_PASSWORD: ci-only
+          COMPOSE_PROJECT_NAME: pdfbot_ci
+        run: |
+          docker compose build
+          docker compose up -d --wait worker
+          docker compose run --rm --no-deps -T -e PDFBOT_RELEASE_TEST=1 bot python - seed < deploy/check_stack.py
+          docker compose up -d --wait --force-recreate postgres
+          docker compose run --rm --no-deps -T -e PDFBOT_RELEASE_TEST=1 bot python - verify < deploy/check_stack.py
+      - name: Stop test services
+        if: always()
+        env:
+          POSTGRES_PASSWORD: ci-only
+          COMPOSE_PROJECT_NAME: pdfbot_ci
+        run: docker compose down --volumes
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
+    environment: production
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy tested commit
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SERVER_KEY" > ~/.ssh/pdfbot
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/pdfbot "$SERVER_USER@$SERVER_HOST" "cd /opt/pdfbot && bash deploy/update.sh $GITHUB_SHA"

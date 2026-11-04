@@ -2,10 +2,20 @@ import asyncio
 import json
 import sys
 
+from app.config import settings
 from app.queue.cancellation import ConversionCancelled
 
 
 async def run_local(kind, args, signal):
+    if settings.QUEUE_ALL_CONVERSIONS:
+        from app.queue.submission import enqueue_conversion
+        from app.queue.tasks import run_image_to_pdf_job, run_text_to_pdf_job
+        from app.queue.wait import wait_for_job
+
+        function = {"images": run_image_to_pdf_job, "text": run_text_to_pdf_job}[kind]
+        job = await enqueue_conversion(function, *args)
+        await wait_for_job(job, settings.CONVERSION_TIMEOUT_SECONDS, signal)
+        return
     process = await asyncio.create_subprocess_exec(
         sys.executable, "-m", "app.queue.local", kind,
         stdin=asyncio.subprocess.PIPE,

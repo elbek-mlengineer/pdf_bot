@@ -6,7 +6,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from app.commands import set_private_commands
-from app.database.repositories import Repository
 from app.i18n import LANGUAGES, current_language, labels, tr
 from app.keyboards.language import language_keyboard
 from app.keyboards.main_menu import get_main_menu
@@ -20,14 +19,6 @@ router = Router(name="common_router")
 async def cmd_start(message: Message, state: FSMContext):
     await clear_session(state)
     user = message.from_user
-    if user:
-        await Repository.upsert_user(
-            telegram_id=user.id,
-            username=user.username,
-            first_name=user.first_name,
-            last_name=user.last_name,
-        )
-
     if message.chat.type == "private":
         await set_private_commands(message.bot, message.chat.id, current_language.get())
 

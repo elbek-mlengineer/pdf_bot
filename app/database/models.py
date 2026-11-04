@@ -39,6 +39,13 @@ class User(Base):
     settings: Mapped["UserSettings"] = relationship(back_populates="user", uselist=False)
 
 
+class UserActivity(Base):
+    __tablename__ = "user_activity"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.telegram_id"), primary_key=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class UserSettings(Base):
     __tablename__ = "user_settings"
 

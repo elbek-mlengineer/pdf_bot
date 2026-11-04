@@ -111,5 +111,8 @@
   "command_settings": "Change PDF settings",
   "command_language": "Choose the bot language",
   "command_help": "Get help or contact the admin",
-  "command_cancel": "Cancel the current action"
+  "command_cancel": "Cancel the current action",
+  "user_directory": "Users: {0} · Page: {1}",
+  "user_dates": "Registered: {0} UTC · Last seen: {1} UTC",
+  "session_expired": "Your previous upload expired. Please start again."
 }

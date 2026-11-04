@@ -1,5 +1,8 @@
 from sqlalchemy import func, select
-from app.database.models import ConversionJob, JobStatus, User, UserSettings
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+from app.database.models import ConversionJob, JobStatus, User, UserActivity, UserSettings
 from app.database.session import AsyncSessionLocal
 
 
@@ -8,25 +11,35 @@ class Repository:
     async def upsert_user(
         telegram_id: int, username: str | None, first_name: str, last_name: str | None
     ) -> None:
-        async with AsyncSessionLocal() as session:
-            user = await session.get(User, telegram_id)
-            if not user:
-                user = User(
-                    telegram_id=telegram_id,
-                    username=username,
-                    first_name=first_name,
-                    last_name=last_name,
+        async with AsyncSessionLocal.begin() as session:
+            insert = sqlite_insert if session.get_bind().dialect.name == "sqlite" else pg_insert
+            profile = dict(username=username, first_name=first_name, last_name=last_name)
+            await session.execute(
+                insert(User)
+                .values(telegram_id=telegram_id, **profile)
+                .on_conflict_do_update(index_elements=[User.telegram_id], set_=profile)
+            )
+            await session.execute(
+                insert(UserSettings)
+                .values(user_id=telegram_id)
+                .on_conflict_do_nothing(index_elements=[UserSettings.user_id])
+            )
+            await session.execute(
+                insert(UserActivity)
+                .values(user_id=telegram_id, last_seen_at=func.now())
+                .on_conflict_do_update(
+                    index_elements=[UserActivity.user_id], set_={"last_seen_at": func.now()}
                 )
-                session.add(user)
-                session.add(UserSettings(user_id=telegram_id))
-                await session.commit()
+            )
 
     @staticmethod
     async def get_user_settings(telegram_id: int) -> UserSettings:
         async with AsyncSessionLocal() as session:
             prefs = await session.get(UserSettings, telegram_id)
             if not prefs:
-                prefs = UserSettings(user_id=telegram_id, page_size="A4", orientation="portrait", margin=18)
+                prefs = UserSettings(
+                    user_id=telegram_id, page_size="A4", orientation="portrait", margin=18
+                )
                 session.add(prefs)
                 await session.commit()
                 await session.refresh(prefs)

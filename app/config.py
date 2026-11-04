@@ -15,7 +15,9 @@ class Settings(BaseSettings):
     BOT_TOKEN: str = "000000000:TEST_TOKEN_FOR_CI"
     ADMIN_IDS: Annotated[list[int], NoDecode] = Field(default_factory=list)
 
-    DATABASE_URL: str = "postgresql+asyncpg://pdfuser:StrongPassword123!@postgres:5432/pdfbot"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./bot_local.db"
+    QUEUE_ALL_CONVERSIONS: bool = False
+    SANDBOX_OFFICE: bool = False
     REDIS_URL: str = "redis://redis:6379/0"
 
     TEMP_DIR: Path = Path("/tmp/pdf_converter")

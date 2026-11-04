@@ -5,6 +5,7 @@ from aiogram.fsm.storage.memory import SimpleEventIsolation
 
 from app.config import settings
 from app.database.fsm import SessionStorage
+from app.middlewares.users import RecordUser
 from app.middlewares.language import LanguageMiddleware
 from app.queue.cancellation import CancelActiveConversion
 
@@ -16,6 +17,7 @@ bot = Bot(
 storage = SessionStorage()
 dp = Dispatcher(storage=storage, events_isolation=SimpleEventIsolation())
 dp.update.outer_middleware.unregister(dp.fsm)
+dp.update.outer_middleware(RecordUser())
 dp.update.outer_middleware(LanguageMiddleware(storage))
 dp.update.outer_middleware(CancelActiveConversion(dp.fsm))
 dp.update.outer_middleware(dp.fsm)

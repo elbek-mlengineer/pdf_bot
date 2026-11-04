@@ -1,8 +1,10 @@
 import asyncio
 import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
+
 from app.config import settings
 from app.utils.file_validator import FileValidator
 from app.utils.logger import logger
@@ -37,12 +39,25 @@ class DocumentToPdfConverter:
             str(input_path.resolve()),
         ]
 
+        if settings.SANDBOX_OFFICE:
+            launcher = Path(__file__).with_name("office_sandbox.py").resolve()
+            cmd = [
+                sys.executable,
+                str(launcher),
+                str(input_path.resolve()),
+                str(output_dir.resolve()),
+                str(job_profile_dir.resolve()),
+                *cmd,
+            ]
+        env = {k: os.environ[k] for k in ("PATH", "LANG", "SystemRoot") if k in os.environ}
+        env.update(HOME=str(job_profile_dir), TMPDIR=str(job_profile_dir), SAL_USE_VCLPLUGIN="svp")
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env=dict(os.environ, HOME=str(job_profile_dir)),
+                env=env,
+                cwd=job_profile_dir,
             )
 
             try:
