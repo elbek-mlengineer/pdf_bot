@@ -114,5 +114,7 @@
   "command_cancel": "Cancel the current action",
   "user_directory": "Users: {0} · Page: {1}",
   "user_dates": "Registered: {0} UTC · Last seen: {1} UTC",
-  "session_expired": "Your previous upload expired. Please start again."
+  "session_expired": "Your previous upload expired. Please start again.",
+  "command_admin": "Bot statistics",
+  "command_users": "User directory"
 }

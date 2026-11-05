@@ -76,3 +76,27 @@ async def test_slash_menu_registration():
     private = bot.set_my_commands.await_args
     assert private.kwargs["scope"].chat_id == 123
     assert private.args[0][0].description == "Asosiy menyuni ochish"
+
+async def test_admin_commands_are_scoped_to_authorized_private_chat(monkeypatch):
+    from app.commands import register_commands, set_private_commands
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "ADMIN_IDS", [42])
+    bot = AsyncMock()
+    await register_commands(bot)
+    for call in bot.set_my_commands.await_args_list:
+        assert not {"admin", "users"} & {command.command for command in call.args[0]}
+    for language in LANGUAGES:
+        await set_private_commands(bot, 42, language)
+        call = bot.set_my_commands.await_args
+        assert call.kwargs["scope"].chat_id == 42
+        assert {"admin", "users"} <= {command.command for command in call.args[0]}
+        await set_private_commands(bot, 43, language)
+        assert not {"admin", "users"} & {
+            command.command for command in bot.set_my_commands.await_args.args[0]
+        }
+    monkeypatch.setattr(settings, "ADMIN_IDS", [])
+    await set_private_commands(bot, 42, "uz")
+    assert not {"admin", "users"} & {
+        command.command for command in bot.set_my_commands.await_args.args[0]
+    }
